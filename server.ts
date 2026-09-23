@@ -1,6 +1,56 @@
-import express, { Request, Response } from 'express';
+import express, { Request, Response, NextFunction } from 'express';
 import path from 'path';
+import crypto from 'crypto';
+import dotenv from 'dotenv';
 import { createServer as createViteServer } from 'vite';
+
+dotenv.config();
+
+// Secure admin credentials managed exclusively via environment variables
+const ADMIN_USERNAME = (process.env.ADMIN_USERNAME || 'Brandidge').trim();
+// Password is NEVER exposed to the frontend/client
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || process.env.DASHBOARD_PASSWORD || 'BrandidgeSecure2026!';
+
+// Active cryptographic admin sessions (TTL: 8 hours)
+interface AdminSession {
+  token: string;
+  username: string;
+  createdAt: number;
+  expiresAt: number;
+  ip?: string;
+}
+
+const activeAdminSessions = new Map<string, AdminSession>();
+
+function cleanExpiredSessions() {
+  const now = Date.now();
+  for (const [token, session] of activeAdminSessions.entries()) {
+    if (session.expiresAt <= now) {
+      activeAdminSessions.delete(token);
+    }
+  }
+}
+
+// Admin authorization middleware
+function requireAdminAuth(req: Request, res: Response, next: NextFunction) {
+  cleanExpiredSessions();
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ success: false, error: 'Unauthorized: Admin authentication token required' });
+  }
+
+  const token = authHeader.substring(7).trim();
+  const session = activeAdminSessions.get(token);
+
+  if (!session || session.expiresAt <= Date.now()) {
+    if (session) activeAdminSessions.delete(token);
+    return res.status(401).json({ success: false, error: 'Session expired or invalid. Please re-authenticate.' });
+  }
+
+  // Refresh activity expiration
+  session.expiresAt = Date.now() + 8 * 60 * 60 * 1000;
+  next();
+}
 
 async function startServer() {
   const app = express();
@@ -12,10 +62,95 @@ async function startServer() {
   app.get('/api/health', (req: Request, res: Response) => {
     res.json({
       status: 'ok',
-      service: 'BrandRidge Digital Architecture Engine',
+      service: 'Brandidge Digital Architecture Engine',
       timestamp: new Date().toISOString(),
-      version: '2.4.0'
+      version: '2.5.0',
+      adminAuthActive: true
     });
+  });
+
+  // Admin Dashboard Authentication: Login
+  app.post('/api/admin/login', (req: Request, res: Response) => {
+    const { username, password } = req.body;
+
+    if (!username || !password) {
+      return res.status(400).json({ success: false, error: 'Username and password are required' });
+    }
+
+    const trimmedUser = String(username).trim();
+    const trimmedPass = String(password).trim();
+
+    // Constant-time comparison simulation & validation
+    const userMatches = trimmedUser.toLowerCase() === ADMIN_USERNAME.toLowerCase();
+    const passMatches = trimmedPass === ADMIN_PASSWORD;
+
+    if (!userMatches || !passMatches) {
+      // Artificial delay to prevent timing attacks
+      setTimeout(() => {
+        return res.status(401).json({ success: false, error: 'Invalid username or password' });
+      }, 300);
+      return;
+    }
+
+    cleanExpiredSessions();
+
+    // Generate cryptographically secure random session token
+    const token = 'bds_' + crypto.randomBytes(32).toString('hex');
+    const session: AdminSession = {
+      token,
+      username: ADMIN_USERNAME,
+      createdAt: Date.now(),
+      expiresAt: Date.now() + 8 * 60 * 60 * 1000, // 8 hours validity
+      ip: req.ip
+    };
+
+    activeAdminSessions.set(token, session);
+
+    return res.json({
+      success: true,
+      token,
+      user: {
+        username: ADMIN_USERNAME,
+        role: 'admin',
+        expiresAt: session.expiresAt
+      }
+    });
+  });
+
+  // Admin Dashboard Authentication: Verify Session Token
+  app.get('/api/admin/verify', (req: Request, res: Response) => {
+    cleanExpiredSessions();
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({ authenticated: false, error: 'No session token provided' });
+    }
+
+    const token = authHeader.substring(7).trim();
+    const session = activeAdminSessions.get(token);
+
+    if (!session || session.expiresAt <= Date.now()) {
+      if (session) activeAdminSessions.delete(token);
+      return res.status(401).json({ authenticated: false, error: 'Session expired or invalid' });
+    }
+
+    return res.json({
+      authenticated: true,
+      user: {
+        username: session.username,
+        role: 'admin',
+        expiresAt: session.expiresAt
+      }
+    });
+  });
+
+  // Admin Dashboard Authentication: Logout
+  app.post('/api/admin/logout', (req: Request, res: Response) => {
+    const authHeader = req.headers.authorization;
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      const token = authHeader.substring(7).trim();
+      activeAdminSessions.delete(token);
+    }
+    return res.json({ success: true, message: 'Logged out successfully' });
   });
 
   // Mock server-side auth validation

@@ -11,10 +11,11 @@ import { PricingSection } from './components/PricingSection';
 import { AboutSection } from './components/AboutSection';
 import { ContactSection } from './components/ContactSection';
 import { BookingModal } from './components/BookingModal';
-import { AdminPortal } from './components/AdminPortal';
 import { CustomerPortal } from './components/CustomerPortal';
 import { CustomerAuthModal } from './components/CustomerAuthModal';
 import { LegalModals } from './components/LegalModals';
+import { DashboardLogin } from './components/dashboard/DashboardLogin';
+import { AdminDashboard } from './components/dashboard/AdminDashboard';
 
 export default function App() {
   const [currentView, setCurrentView] = useState<ViewType>('home');
@@ -23,6 +24,51 @@ export default function App() {
   const [currentUser, setCurrentUser] = useState<AuthUser | null>(() => PortalStore.getCurrentUser());
   const [selectedBookingContext, setSelectedBookingContext] = useState<string | undefined>(undefined);
   const [activeLegalModal, setActiveLegalModal] = useState<'privacy' | 'terms' | 'cookies' | 'sitemap' | null>(null);
+
+  // Path-based routing for /dashboard and /dashboard/login
+  const [dashboardRoute, setDashboardRoute] = useState<'none' | 'login' | 'dashboard'>(() => {
+    if (typeof window !== 'undefined') {
+      const p = window.location.pathname;
+      if (p === '/dashboard/login') return 'login';
+      if (p === '/dashboard' || p.startsWith('/dashboard/')) return 'dashboard';
+    }
+    return 'none';
+  });
+
+  useEffect(() => {
+    const handlePopState = () => {
+      const p = window.location.pathname;
+      if (p === '/dashboard/login') {
+        setDashboardRoute('login');
+      } else if (p === '/dashboard' || p.startsWith('/dashboard/')) {
+        setDashboardRoute('dashboard');
+      } else {
+        setDashboardRoute('none');
+      }
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
+
+  const handleNavigateToDashboard = () => {
+    window.history.pushState(null, '', '/dashboard');
+    setDashboardRoute('dashboard');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleNavigateToDashboardLogin = () => {
+    window.history.pushState(null, '', '/dashboard/login');
+    setDashboardRoute('login');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleNavigateHomeFromDashboard = () => {
+    window.history.pushState(null, '', '/');
+    setDashboardRoute('none');
+    setCurrentView('home');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
 
   // Persistent leads management
   const [leads, setLeads] = useState<LeadSubmission[]>(() => {
@@ -79,6 +125,14 @@ export default function App() {
   };
 
   const handleNavigate = (view: ViewType) => {
+    if (view === 'admin') {
+      handleNavigateToDashboard();
+      return;
+    }
+    if (dashboardRoute !== 'none') {
+      setDashboardRoute('none');
+      window.history.pushState(null, '', '/');
+    }
     if (view === 'customer-portal' && !currentUser) {
       setAuthModalOpen(true);
       return;
@@ -99,6 +153,31 @@ export default function App() {
     setCurrentUser(null);
     setCurrentView('home');
   };
+
+  // Render Admin Dashboard Login Route (/dashboard/login)
+  if (dashboardRoute === 'login') {
+    return (
+      <DashboardLogin
+        onLoginSuccess={handleNavigateToDashboard}
+        onNavigateHome={handleNavigateHomeFromDashboard}
+      />
+    );
+  }
+
+  // Render Protected Admin Dashboard Route (/dashboard)
+  if (dashboardRoute === 'dashboard') {
+    return (
+      <AdminDashboard
+        onLogout={handleNavigateToDashboardLogin}
+        onNavigateHome={handleNavigateHomeFromDashboard}
+        leads={leads}
+        onUpdateLeadStatus={(id, status) => {
+          setLeads(prev => prev.map(l => (l.id === id ? { ...l, meetingStatus: status } : l)));
+        }}
+        onUpdateLeadsList={(updated) => setLeads(updated)}
+      />
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[#080B11] text-slate-100 flex flex-col font-sans selection:bg-cyan-500/30 selection:text-cyan-200">
@@ -205,13 +284,14 @@ export default function App() {
         )}
 
         {currentView === 'admin' && (
-          <AdminPortal
+          <AdminDashboard
+            onLogout={handleNavigateToDashboardLogin}
+            onNavigateHome={handleNavigateHomeFromDashboard}
             leads={leads}
-            onUpdateLeadStatus={handleUpdateLeadStatus}
-            onUpdateLead={handleUpdateLead}
-            onAddLead={handleAddLeadManual}
-            onDeleteLead={handleDeleteLead}
-            onNavigate={handleNavigate}
+            onUpdateLeadStatus={(id, status) => {
+              setLeads(prev => prev.map(l => (l.id === id ? { ...l, meetingStatus: status } : l)));
+            }}
+            onUpdateLeadsList={(updated) => setLeads(updated)}
           />
         )}
       </main>

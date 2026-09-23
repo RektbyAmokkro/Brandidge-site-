@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { motion } from 'motion/react';
 import { ViewType, LeadSubmission } from '../types';
 import { AGENCY_INFO } from '../data/agencyData';
+import { PortalStore } from '../data/portalStore';
 import { 
   Mail, 
   Phone, 
@@ -61,6 +62,18 @@ export const ContactSection: React.FC<ContactSectionProps> = ({
       };
 
       onNewLead(newLead);
+      PortalStore.saveContactMessage({
+        id: newLead.id,
+        fullName: newLead.fullName,
+        email: newLead.email,
+        company: newLead.company,
+        phone: newLead.phone,
+        websiteUrl: newLead.websiteUrl,
+        subject: 'Direct Website Inquiry',
+        message: contactForm.message || 'Direct inquiry submitted via contact form.',
+        isRead: false,
+        submittedAt: newLead.submittedAt
+      });
       setSubmitted(true);
       setTimeout(() => {
         setSubmitted(false);

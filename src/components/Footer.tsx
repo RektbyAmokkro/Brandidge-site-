@@ -209,15 +209,6 @@ export const Footer: React.FC<FooterProps> = ({
         <div className="pt-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-500">
           <div className="flex items-center gap-2">
             <span>© {new Date().getFullYear()} Brandidge. All rights reserved.</span>
-            {/* Subtle administrator lock icon */}
-            <button
-              onClick={() => onNavigate('admin')}
-              title="Staff Access Gate"
-              aria-label="Staff Access Gate"
-              className="text-slate-700 hover:text-cyan-400 transition-colors p-0.5 rounded cursor-pointer"
-            >
-              <Lock className="w-3 h-3" />
-            </button>
           </div>
 
           <div className="flex flex-wrap items-center gap-4 sm:gap-6">

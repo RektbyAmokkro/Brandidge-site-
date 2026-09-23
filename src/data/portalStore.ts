@@ -18,7 +18,9 @@ import {
   PaymentScheduleItem,
   QuoteVersionRecord,
   QuoteCalculationParams,
-  QuoteCalculationResult
+  QuoteCalculationResult,
+  Vacancy,
+  ContactMessage
 } from '../types';
 
 export const SEED_COMPANY_SERVICES: CompanyService[] = [
@@ -1654,4 +1656,252 @@ export class PortalStore {
     }
     this.setItem('current_auth_user', null);
   }
+
+  // Admin Dashboard Session Token
+  static getAdminToken(): string | null {
+    if (typeof window === 'undefined') return null;
+    return sessionStorage.getItem('brandidge_dashboard_token') || localStorage.getItem('brandidge_dashboard_token');
+  }
+
+  static setAdminToken(token: string): void {
+    if (typeof window === 'undefined') return;
+    sessionStorage.setItem('brandidge_dashboard_token', token);
+    localStorage.setItem('brandidge_dashboard_token', token);
+  }
+
+  static clearAdminToken(): void {
+    if (typeof window === 'undefined') return;
+    sessionStorage.removeItem('brandidge_dashboard_token');
+    localStorage.removeItem('brandidge_dashboard_token');
+  }
+
+  // Vacancies Store
+  static getVacancies(): Vacancy[] {
+    return this.getItem<Vacancy[]>('vacancies', SEED_VACANCIES);
+  }
+
+  static saveVacancy(vacancy: Vacancy): void {
+    const list = this.getVacancies();
+    const idx = list.findIndex(v => v.id === vacancy.id);
+    const updated = {
+      ...vacancy,
+      updatedAt: new Date().toISOString()
+    };
+    if (idx >= 0) {
+      list[idx] = updated;
+    } else {
+      updated.createdAt = new Date().toISOString();
+      list.unshift(updated);
+    }
+    this.setItem('vacancies', list);
+    this.logAudit({
+      userId: 'admin',
+      userEmail: 'admin@brandidge.com',
+      action: idx >= 0 ? 'VACANCY_UPDATED' : 'VACANCY_CREATED',
+      entityType: 'JOB_VACANCY',
+      entityId: vacancy.id,
+      details: `Vacancy "${vacancy.title}" (${vacancy.department}) was saved.`
+    });
+  }
+
+  static deleteVacancy(id: string): void {
+    const list = this.getVacancies().filter(v => v.id !== id);
+    this.setItem('vacancies', list);
+    this.logAudit({
+      userId: 'admin',
+      userEmail: 'admin@brandidge.com',
+      action: 'VACANCY_DELETED',
+      entityType: 'JOB_VACANCY',
+      entityId: id,
+      details: `Vacancy ${id} was removed.`
+    });
+  }
+
+  static toggleVacancyPublish(id: string): boolean {
+    const list = this.getVacancies();
+    const item = list.find(v => v.id === id);
+    if (!item) return false;
+    item.isPublished = !item.isPublished;
+    item.updatedAt = new Date().toISOString();
+    this.setItem('vacancies', list);
+    this.logAudit({
+      userId: 'admin',
+      userEmail: 'admin@brandidge.com',
+      action: 'VACANCY_STATUS_CHANGED',
+      entityType: 'JOB_VACANCY',
+      entityId: id,
+      details: `Vacancy "${item.title}" publish status set to ${item.isPublished}.`
+    });
+    return item.isPublished;
+  }
+
+  // Contact Messages Store
+  static getContactMessages(): ContactMessage[] {
+    return this.getItem<ContactMessage[]>('contact_messages', SEED_CONTACT_MESSAGES);
+  }
+
+  static saveContactMessage(msg: ContactMessage): void {
+    const list = this.getContactMessages();
+    const idx = list.findIndex(m => m.id === msg.id);
+    if (idx >= 0) {
+      list[idx] = msg;
+    } else {
+      list.unshift(msg);
+    }
+    this.setItem('contact_messages', list);
+  }
+
+  static markContactMessageRead(id: string, isRead: boolean): void {
+    const list = this.getContactMessages();
+    const item = list.find(m => m.id === id);
+    if (item) {
+      item.isRead = isRead;
+      this.setItem('contact_messages', list);
+    }
+  }
+
+  static deleteContactMessage(id: string): void {
+    const list = this.getContactMessages().filter(m => m.id !== id);
+    this.setItem('contact_messages', list);
+  }
 }
+
+export const SEED_VACANCIES: Vacancy[] = [
+  {
+    id: 'vac-1',
+    title: 'Senior Frontend Web Architect',
+    department: 'Engineering',
+    location: 'Amsterdam / Remote',
+    type: 'full-time',
+    experienceLevel: 'senior',
+    salaryRange: '€65,000 - €85,000 / year',
+    description: 'Lead the architecture of ultra-fast, conversion-optimized web applications for innovative high-growth startups and enterprises.',
+    requirements: [
+      '5+ years professional experience with React, TypeScript, and modern build tooling',
+      'Proven expertise in Core Web Vitals optimization and sub-second load times',
+      'Strong eye for micro-interactions, responsive design, and Tailwind CSS',
+      'Experience building headless architectures and component design systems'
+    ],
+    responsibilities: [
+      'Architect modular client and admin web systems',
+      'Drive sub-second performance SLAs across all production websites',
+      'Conduct rigorous code reviews and mentor engineers',
+      'Collaborate directly with founders on technical project roadmaps'
+    ],
+    isPublished: true,
+    createdAt: '2026-08-01T10:00:00Z',
+    updatedAt: '2026-08-20T14:30:00Z'
+  },
+  {
+    id: 'vac-2',
+    title: 'Lead UI/UX Product Designer',
+    department: 'Design',
+    location: 'Remote (EU / US Timezones)',
+    type: 'full-time',
+    experienceLevel: 'lead',
+    salaryRange: '€60,000 - €80,000 / year',
+    description: 'Design distinctive, award-winning visual identities and high-converting web interfaces that position new brands as industry leaders.',
+    requirements: [
+      '4+ years designing high-end digital products, SaaS, or luxury boutique websites',
+      'Mastery of Figma, interactive prototyping, and design systems',
+      'Deep understanding of conversion psychology and typographic hierarchy',
+      'Portfolio demonstrating editorial typography and modern dark-mode aesthetics'
+    ],
+    responsibilities: [
+      'Produce bespoke wireframes, interactive prototypes, and design specs',
+      'Lead design discovery sessions with client executives',
+      'Define brand identity guidelines, color palettes, and typographic tokens',
+      'Partner closely with frontend engineers to ensure pixel-perfect fidelity'
+    ],
+    isPublished: true,
+    createdAt: '2026-08-10T09:00:00Z',
+    updatedAt: '2026-08-22T11:15:00Z'
+  },
+  {
+    id: 'vac-3',
+    title: 'Growth Marketing & SEO Specialist',
+    department: 'Growth',
+    location: 'Hybrid (Amsterdam)',
+    type: 'contract',
+    experienceLevel: 'mid',
+    salaryRange: '€45,000 - €58,000 / year',
+    description: 'Spearhead technical SEO audits, schema structures, and organic discovery strategies to ensure newly launched websites dominate search rankings.',
+    requirements: [
+      '3+ years in technical SEO, Google Search Console, and schema markup',
+      'Track record ranking high-competition keywords in competitive niches',
+      'Experience with international multi-lingual SEO (EN, NL, DE, ES)',
+      'Familiarity with analytics pipelines and conversion funnel tracking'
+    ],
+    responsibilities: [
+      'Audit sitemaps, structured data, canonicals, and Core Web Vitals impact',
+      'Develop keyword maps and content strategies for clients',
+      'Set up conversion tracking in Google Analytics 4 and custom dashboards',
+      'Provide monthly search performance reports to client founders'
+    ],
+    isPublished: true,
+    createdAt: '2026-08-15T12:00:00Z',
+    updatedAt: '2026-08-24T16:00:00Z'
+  },
+  {
+    id: 'vac-4',
+    title: 'Junior Technical Writer & Content Strategist',
+    department: 'Marketing',
+    location: 'Remote',
+    type: 'part-time',
+    experienceLevel: 'junior',
+    salaryRange: '€28,000 - €36,000 (pro-rata)',
+    description: 'Produce high-clarity technical documentation, case studies, and compelling value propositions for client projects.',
+    requirements: [
+      '1+ years technical copywriting or content creation experience',
+      'Exceptional written English with ability to translate tech into clear benefits',
+      'Basic understanding of web technologies and digital marketing'
+    ],
+    responsibilities: [
+      'Draft case study breakdowns for delivered client websites',
+      'Write engaging copywriting drafts for new business clients',
+      'Maintain documentation and agency knowledge bases'
+    ],
+    isPublished: false,
+    createdAt: '2026-08-18T15:00:00Z',
+    updatedAt: '2026-08-18T15:00:00Z'
+  }
+];
+
+export const SEED_CONTACT_MESSAGES: ContactMessage[] = [
+  {
+    id: 'msg-1',
+    fullName: 'Sophia Martinez',
+    email: 'sophia@aurapharma.com',
+    company: 'Aura Pharma Innovations',
+    phone: '+1 (415) 890-4100',
+    websiteUrl: 'https://aurapharma.com',
+    subject: 'Multi-Language Architecture & Rebranding',
+    message: 'Hello Brandidge team, we are expanding our biotech diagnostics venture into the European market next quarter. We need a modern, multi-language web platform (EN, NL, DE) with sub-second page loads. Could we schedule a discovery call?',
+    isRead: false,
+    submittedAt: '2026-08-24T08:30:00Z'
+  },
+  {
+    id: 'msg-2',
+    fullName: 'Hendrik van Dijk',
+    email: 'hendrik@dijkman-consulting.nl',
+    company: 'Dijkman Consulting Group',
+    phone: '+31 20 555 8920',
+    websiteUrl: 'https://dijkman-consulting.nl',
+    subject: 'Client Portal & Core Web Vitals Tuning',
+    message: 'Good morning! Our current WordPress site is slow (FCP 3.2s) and fails mobile Core Web Vitals. We are interested in your decoupled architecture and customer portal for our B2B tax clients.',
+    isRead: false,
+    submittedAt: '2026-08-23T14:15:00Z'
+  },
+  {
+    id: 'msg-3',
+    fullName: 'Alexandre Dupont',
+    email: 'a.dupont@atelier-luxe.fr',
+    company: 'Atelier Dupont Haute Horlogerie',
+    phone: '+33 1 42 68 55 12',
+    websiteUrl: 'https://atelierdupont.fr',
+    subject: 'Custom E-Commerce & Brand Identity',
+    message: 'We are launching a limited collection of bespoke luxury timepieces. Looking for an ultra-clean, minimalist dark aesthetic with interactive 3D model support and Stripe checkout.',
+    isRead: true,
+    submittedAt: '2026-08-21T11:00:00Z'
+  }
+];

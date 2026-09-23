@@ -344,7 +344,7 @@ export interface AuditLog {
   userId: string;
   userEmail: string;
   action: string;
-  entityType: 'AUTH' | 'CUSTOMER' | 'PROJECT' | 'QUOTE' | 'INVOICE' | 'PAYMENT' | 'CHANGE_REQUEST' | 'SETTINGS' | 'APPOINTMENT';
+  entityType: 'AUTH' | 'CUSTOMER' | 'PROJECT' | 'QUOTE' | 'INVOICE' | 'PAYMENT' | 'CHANGE_REQUEST' | 'SETTINGS' | 'APPOINTMENT' | 'JOB_VACANCY';
   entityId?: string;
   details: string;
   timestamp: string;
@@ -534,3 +534,33 @@ export interface Testimonial {
   metric: string;
   avatar: string;
 }
+
+export interface Vacancy {
+  id: string;
+  title: string;
+  department: string;
+  location: string;
+  type: 'full-time' | 'part-time' | 'contract' | 'internship';
+  experienceLevel: 'junior' | 'mid' | 'senior' | 'lead';
+  salaryRange?: string;
+  description: string;
+  requirements: string[];
+  responsibilities: string[];
+  isPublished: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ContactMessage {
+  id: string;
+  fullName: string;
+  email: string;
+  company?: string;
+  phone?: string;
+  websiteUrl?: string;
+  subject: string;
+  message: string;
+  isRead: boolean;
+  submittedAt: string;
+}
+
